@@ -1,29 +1,6 @@
-# import wsnsimpy.wsnsimpy as wsp
 import wsnsimpy.wsnsimpy_tk as wsp
 import random
-import math
-import queue
-
-def distance(p1, p2):
-    return (((p1[0]-p2[0]) ** 2) + ((p1[1]-p2[1]) ** 2)) ** 0.5
-
-def dijkstra(s, d, matrix, tx_range):
-    q = queue.PriorityQueue()
-    q.put((0, s, [s]))
-    visited = [False for x in range(100)]
-    path = None 
-    while not q.empty():
-        dist, u, p = q.get()
-        if visited[u]:
-            continue
-        visited[u] = True
-        if u == d:
-            path = p 
-            break
-        for v in range(100):
-            if matrix[u][v] <= tx_range:
-                q.put((dist + matrix[u][v], v, p + [v]))
-    return path
+from routing_tools import *
 
 class PhaseI(wsp.LayeredNode):
     
@@ -35,6 +12,7 @@ class PhaseI(wsp.LayeredNode):
         self.tx_range = self.sim.tx_range
         self.count = 1
         self.is_center = False
+        self.send_packets = 0
         # DEBUG
         self.logging = True
 
@@ -54,30 +32,6 @@ class PhaseI(wsp.LayeredNode):
         else:
             self.success_map = False
             self.scene.nodecolor(self.id, .7, .7, .7)
-
-    def send_request_path(self, s, d):
-        data = {
-            "msg": "req_path",
-            "source": s,
-            "destination": d
-        }
-        self.send(self.prev, data=data)
-    
-    def send_path(self, path, path_to_source):
-        data = {
-            "msg": "res_path",
-            "path": path,
-            "path_to_source": path_to_source[1:]
-        }
-        self.send(path_to_source[0], data=data)
-
-    def send_msg(self, path, message):
-        data = {
-            "msg": "send_msg",
-            "path": path[1:],
-            "message": message
-        }
-        self.send(path[0], data=data)
 
     def on_receive(self, sender, data):
         msg = data["msg"]
@@ -102,48 +56,6 @@ class PhaseI(wsp.LayeredNode):
                 self.is_center = is_center
                 yield self.timeout(random.uniform(0.1, 0.5))
                 self.send_map(master_id, is_center)
-
-                if self.id == self.sim.source:
-                    if self.id != self.my_master:
-                        yield self.timeout(random.uniform(0.1, 0.5))
-                        self.send_request_path(self.id, self.sim.destination)
-                    else:
-                        path = dijkstra(self.id, self.sim.destination, self.I, self.tx_range)
-                        for i in range(int(random.uniform(5, 10))):
-                            yield self.timeout(random.uniform(0.1, 0.5))
-                            self.send_msg(path[1:], "hello")
-        
-        elif msg == "req_path":
-            s = data["source"]
-            d = data["destination"]
-            if self.id != self.my_master:
-                yield self.timeout(random.uniform(0.1, 0.5))
-                self.send_request_path(s, d)
-            else:
-                yield self.timeout(random.uniform(0.1, 0.5))
-                path = dijkstra(s, d, self.I, self.tx_range)
-                path_to_source = dijkstra(self.id, s, self.I, self.tx_range)[1:]
-                self.send_path(path, path_to_source)
-
-        elif msg == "res_path":
-            path_to_source = data["path_to_source"]
-            path = data["path"]
-            if len(path_to_source) > 0:
-                yield self.timeout(random.uniform(0.1, 0.5))
-                self.send_path(path, path_to_source)
-            else:
-                for i in range(int(random.uniform(5, 10))):
-                    yield self.timeout(random.uniform(0.1, 0.5))
-                    self.send_msg(path[1:], "hello")
-
-        elif msg == "send_msg":
-            path = data["path"]
-            message = data["message"]
-            if len(path) > 0:
-                yield self.timeout(random.uniform(0.1, 0.5))
-                self.send_msg(path, message)
-            else:
-                pass
 
         elif msg == "up":
             u_data = data["u_data"]
@@ -204,6 +116,7 @@ class PhaseI(wsp.LayeredNode):
             "I": I,
             "T": T
         }
+        self.send_packets += 1
         self.send(path[0], data=data)
 
     def create_I_matrix(self):
@@ -224,6 +137,7 @@ class PhaseI(wsp.LayeredNode):
             "master_id": master_id,
             "is_center": is_center
         }
+        self.send_packets += 1
         self.send(wsp.BROADCAST_ADDR, data=data)
 
     def send_up(self, u_data):
@@ -231,48 +145,5 @@ class PhaseI(wsp.LayeredNode):
             "msg": "up",
             "u_data": u_data
         }
+        self.send_packets += 1
         self.send(self.prev, data=data)
-
-class PhaseII(wsp.LayeredNode):
-    pass
-        
-def runsim(seed, tx_range):
-    random.seed(seed)
-    # sim = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
-    sim = wsp.Simulator(timescale=0.1, until=50, terrain_size=(700, 700), visual=True)
-    # place 100 nodes on 10x10 grid space
-    for x in range(10):
-        for y in range(10):
-            px = 50 + x*60 + random.uniform(-20, 20)
-            py = 50 + y*60 + random.uniform(-20, 20)
-            sim.add_node(PhaseI, (px, py))
-    # sim.master = master
-    sim.master = int(random.uniform(0, 99))
-    sim.tx_range = tx_range
-    sim.source = int(random.uniform(0, 29))
-    sim.destination = int(random.uniform(70, 99))
-    sim.run()
-
-    sim2 = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
-    for n in sim.nodes:
-        sim2.add_node(PhaseII, n.pos)
-    for i in range(len(sim.nodes)):
-        if sim2.nodes[i].id != sim.nodes[i].my_master:
-            sim2.nodes[i].my_master = sim.nodes[i].my_master
-            sim2.nodes[i].prev = sim.nodes[i].prev
-        else:
-            sim2.nodes[i].my_master = sim.nodes[i].my_master
-            sim2.nodes[i].P = sim.nodes[i].P
-            sim2.nodes[i].I = sim.nodes[i].I
-            sim2.nodes[i].T = sim.nodes[i].T
-        sim2.nodes[i].tx_range = sim.nodes[i].tx_range
-    sim2.run()
-    
-    # return num_successes, num_tx, num_rx
-
-# runsim(5, 60, 100, 23, 98)
-# for i in range(20):
-#     print(i)
-#     for j in range(5):
-#         runsim(i, 50 + (j+1) * 50)
-runsim(9, 300)
