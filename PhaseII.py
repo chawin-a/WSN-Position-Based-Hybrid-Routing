@@ -13,13 +13,14 @@ class PhaseII(wsp.LayeredNode):
         self.logging = True
 
     def run(self):
-        if self.id == self.sim.source:
-            if self.id != self.my_master:
-                yield self.timeout(random.uniform(0.1, 0.5))
-                self.send_request_path(self.id, self.sim.destination)
-            else:
-                path = dijkstra(self.id, self.sim.destination, self.I, self.tx_range)
-                for i in range(int(random.uniform(5, 10))):
+        if self.sim.source.get(self.id) != None:
+            for dest in self.sim.source[self.id]:
+                if self.id != self.my_master:
+                    yield self.timeout(random.uniform(0.1, 0.5))
+                    self.send_request_path(self.id, dest)
+                else:
+                    path = dijkstra(self.id, dest, self.I, self.tx_range)
+                    # for i in range(int(random.uniform(5, 10))):
                     yield self.timeout(random.uniform(0.1, 0.5))
                     self.send_msg(path[1:], "hello")
 
@@ -44,9 +45,9 @@ class PhaseII(wsp.LayeredNode):
                 yield self.timeout(random.uniform(0.1, 0.5))
                 self.send_path(path, path_to_source)
             else:
-                for i in range(int(random.uniform(5, 10))):
-                    yield self.timeout(random.uniform(0.1, 0.5))
-                    self.send_msg(path[1:], "hello")
+                # for i in range(int(random.uniform(5, 10))):
+                yield self.timeout(random.uniform(0.1, 0.5))
+                self.send_msg(path[1:], "hello")
 
         elif msg == "send_msg":
             path = data["path"]

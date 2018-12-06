@@ -3,25 +3,24 @@ import wsnsimpy.wsnsimpy_tk as wsp
 import random
 from PhaseI import *
 from PhaseII import *
+from generate_data import *
+import csv
+import sys
 
-def runsim(seed, tx_range):
+def runsim(seed, tx_range, num_data):
     random.seed(seed)
     sim = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
     # sim = wsp.Simulator(timescale=0.1, until=50, terrain_size=(700, 700), visual=True)
     # place 100 nodes on 10x10 grid space
-    for x in range(10):
-        for y in range(10):
-            px = 50 + x*60 + random.uniform(-20, 20)
-            py = 50 + y*60 + random.uniform(-20, 20)
-            sim.add_node(PhaseI, (px, py))
+    nodes = generate_node(seed)
+    for px, py in nodes:
+        sim.add_node(PhaseI, (px, py))
     # sim.master = master
-    sim.master = int(random.uniform(0, 99))
+    sim.master = random.randint(0, 99)
     sim.tx_range = tx_range
-    source = int(random.uniform(0, 29))
-    destination = int(random.uniform(70, 99))
     sim.run()
 
-    sim2 = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=True)
+    sim2 = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
     
     # copy data from PhaseI to PhaseII
     for n in sim.nodes:
@@ -36,15 +35,23 @@ def runsim(seed, tx_range):
             sim2.nodes[i].I = sim.nodes[i].I
             sim2.nodes[i].T = sim.nodes[i].T
         sim2.nodes[i].tx_range = sim.nodes[i].tx_range
-    sim2.source = source
-    sim2.destination = destination
+    sim2.source, _ = generate_data(seed, num_data, 99)
     sim2.run()
     
+    s1 = sum([n.send_packets for n in sim.nodes])
+    s2 = sum([n.send_packets for n in sim2.nodes])
+    return s1 + s2
     # return num_successes, num_tx, num_rx
 
 # runsim(5, 60, 100, 23, 98)
-# for i in range(20):
-#     print(i)
-#     for j in range(5):
-#         runsim(i, 50 + (j+1) * 50)
-runsim(9, 300)
+seed = int(sys.argv[1])
+with open(f"results_pbhra_{seed}.csv", "w") as out:
+    writer = csv.writer(out)
+    writer.writerow(['seed', 'range', 'num_data', 'packets'])
+    for j in range(5):
+        RANGE = 50 + (j+1) * 50
+        for n in range(5, 101, 5):
+            data = n
+            print(f"RUNNING...{seed}, {RANGE}, {data}")
+            packets = runsim(seed, RANGE, data)
+            writer.writerow([seed, RANGE, data, packets])
