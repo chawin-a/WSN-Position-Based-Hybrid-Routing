@@ -21,8 +21,9 @@ class PhaseII(wsp.LayeredNode):
                 else:
                     path = dijkstra(self.id, dest, self.I, self.tx_range)
                     # for i in range(int(random.uniform(5, 10))):
-                    yield self.timeout(random.uniform(0.1, 0.5))
-                    self.send_msg(path[1:], "hello")
+                    for i in range(self.sim.ROUND):
+                        yield self.timeout(random.uniform(0.1, 0.5))
+                        self.send_msg(path[1:], "hello")
 
     def on_receive(self, sender, data):
         msg = data["msg"]
@@ -46,8 +47,9 @@ class PhaseII(wsp.LayeredNode):
                 self.send_path(path, path_to_source)
             else:
                 # for i in range(int(random.uniform(5, 10))):
-                yield self.timeout(random.uniform(0.1, 0.5))
-                self.send_msg(path[1:], "hello")
+                for i in range(self.sim.ROUND):
+                    yield self.timeout(random.uniform(0.1, 0.5))
+                    self.send_msg(path[1:], "hello")
 
         elif msg == "send_msg":
             path = data["path"]

@@ -7,7 +7,7 @@ from generate_data import *
 import csv
 import sys
 
-def runsim(seed, tx_range, num_data):
+def runsim(seed, tx_range, num_data, ROUND):
     random.seed(seed)
     sim = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
     # sim = wsp.Simulator(timescale=0.1, until=50, terrain_size=(700, 700), visual=True)
@@ -36,8 +36,9 @@ def runsim(seed, tx_range, num_data):
             sim2.nodes[i].T = sim.nodes[i].T
         sim2.nodes[i].tx_range = sim.nodes[i].tx_range
     sim2.source, _ = generate_data(seed, num_data, 99)
+    sim2.ROUND = ROUND
     sim2.run()
-    
+
     s1 = sum([n.send_packets for n in sim.nodes])
     s2 = sum([n.send_packets for n in sim2.nodes])
     return s1 + s2
@@ -53,5 +54,5 @@ with open(f"results_pbhra_{seed}.csv", "w") as out:
         for n in range(5, 101, 5):
             data = n
             print(f"RUNNING...{seed}, {RANGE}, {data}")
-            packets = runsim(seed, RANGE, data)
+            packets = runsim(seed, RANGE, data, 1)
             writer.writerow([seed, RANGE, data, packets])

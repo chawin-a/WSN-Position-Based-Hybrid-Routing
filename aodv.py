@@ -48,9 +48,10 @@ class MyNode(wsp.Node):
     ###################
     def start_send_data(self):
         self.scene.clearlinks()
-        yield self.timeout(1)
-        self.log(f"Send data to {self.sim.DEST}")
-        self.send_data(self.id)
+        for i in range(self.sim.ROUND):
+            yield self.timeout(1)
+            self.log(f"Send data to {self.sim.DEST}")
+            self.send_data(self.id)
 
     ###################
     def send_data(self,src):
@@ -93,7 +94,7 @@ class MyNode(wsp.Node):
                 self.log(f"Got data from {src}")
 
 ###########################################################
-def runsim(seed, u, v, tx_range):
+def runsim(seed, u, v, tx_range, ROUND):
     random.seed(seed)
     sim = wsp.Simulator(
             until=100,
@@ -106,6 +107,7 @@ def runsim(seed, u, v, tx_range):
     sim.scene.linestyle("parent", color=(0,.8,0), arrow="tail", width=2)
     sim.SOURCE = u
     sim.DEST = v
+    sim.ROUND = ROUND
     # place nodes over 100x100 grids
     nodes = generate_node(seed)
     for px, py in nodes:
@@ -133,5 +135,5 @@ with open(f"results_aodv_{seed}.csv", "w") as out:
             print(f"RUNNING...{seed}, {RANGE}, {n}")
             packets = 0
             for u, v in data:
-                packets += runsim(seed, u, v, RANGE)
+                packets += runsim(seed, u, v, RANGE, 1)
             writer.writerow([seed, RANGE, n, packets])
