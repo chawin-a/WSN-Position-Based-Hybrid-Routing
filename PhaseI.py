@@ -1,6 +1,7 @@
 import wsnsimpy.wsnsimpy_tk as wsp
 import random
 from routing_tools import *
+from generate_data import *
 
 class PhaseI(wsp.LayeredNode):
     
@@ -147,3 +148,18 @@ class PhaseI(wsp.LayeredNode):
         }
         self.send_packets += 1
         self.send(self.prev, data=data)
+
+def main():
+    seed = 123
+    tx_range = 100
+    random.seed(seed)
+    sim = wsp.Simulator(timescale=1, until=50, terrain_size=(700, 700), visual=True)
+    nodes = generate_node(seed)
+    for px, py in nodes:
+        sim.add_node(PhaseI, (px, py))
+    sim.master = random.randint(0, 99)
+    sim.tx_range = tx_range
+    sim.run()
+
+if __name__ == '__main__':
+    main()

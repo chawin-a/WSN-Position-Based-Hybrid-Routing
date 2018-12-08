@@ -1,6 +1,8 @@
 import wsnsimpy.wsnsimpy_tk as wsp
 import random
+from PhaseI import *
 from routing_tools import *
+from generate_data import *
 
 class PhaseII(wsp.LayeredNode):
     def init(self):
@@ -84,3 +86,40 @@ class PhaseII(wsp.LayeredNode):
         }
         self.send_packets += 1
         self.send(path[0], data=data)
+
+def main():
+    seed = 123
+    tx_range = 100
+    num_data = 1
+    ROUND = 1
+    random.seed(seed)
+    sim = wsp.Simulator(timescale=0, until=50, terrain_size=(700, 700), visual=False)
+    nodes = generate_node(seed)
+    for px, py in nodes:
+        sim.add_node(PhaseI, (px, py))
+    # sim.master = master
+    sim.master = random.randint(0, 99)
+    sim.tx_range = tx_range
+    sim.run()
+
+    sim2 = wsp.Simulator(timescale=3, until=50, terrain_size=(700, 700), visual=True)
+    
+    # copy data from PhaseI to PhaseII
+    for n in sim.nodes:
+        sim2.add_node(PhaseII, n.pos)
+    for i in range(len(sim.nodes)):
+        if sim2.nodes[i].id != sim.nodes[i].my_master:
+            sim2.nodes[i].my_master = sim.nodes[i].my_master
+            sim2.nodes[i].prev = sim.nodes[i].prev
+        else:
+            sim2.nodes[i].my_master = sim.nodes[i].my_master
+            sim2.nodes[i].P = sim.nodes[i].P
+            sim2.nodes[i].I = sim.nodes[i].I
+            sim2.nodes[i].T = sim.nodes[i].T
+        sim2.nodes[i].tx_range = sim.nodes[i].tx_range
+    sim2.source, _ = generate_data(4, num_data, 99)
+    sim2.ROUND = ROUND
+    sim2.run()
+
+if __name__ == '__main__':
+    main()
